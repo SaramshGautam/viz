@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Rolodex Linkograph (D3)</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+      :root {
+        --bg: #0b0f14;
+        --fg: #e8eef6;
+        --muted: #96a2b4;
+        --card: #121a24;
+        --stroke: #263244;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: ui-sans-serif, system-ui, -apple-system;
+      }
+      #wrap {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      header {
+        padding: 12px 16px;
+        border-bottom: 1px solid #121a24;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      header .title {
+        font-weight: 700;
+        letter-spacing: 0.2px;
+      }
+      header .hint {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      header .spacer {
+        flex: 1;
+      }
+      button,
+      input[type="range"] {
+        background: #0f1722;
+        color: var(--fg);
+        border: 1px solid #1c2736;
+        border-radius: 10px;
+        padding: 8px 10px;
+        font-size: 13px;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:hover {
+        border-color: #2b3b52;
+      }
+
+      #viz {
+        flex: 1;
+        position: relative;
+      }
+      svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .link {
+        fill: none;
+        stroke: rgba(160, 190, 255, 0.25);
+        stroke-width: 2;
+      }
+      .link.dim {
+        opacity: 0.08;
+      }
+      .link.hi {
+        opacity: 0.95;
+        stroke: rgba(160, 190, 255, 0.9);
+        stroke-width: 3;
+      }
+
+      .card {
+        cursor: pointer;
+        filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.55));
+      }
+      .card rect {
+        fill: var(--card);
+        stroke: var(--stroke);
+        stroke-width: 1.2;
+        rx: 16;
+        ry: 16;
+      }
+      .card .meta {
+        fill: var(--muted);
+        font-size: 12px;
+      }
+      .card .text {
+        fill: var(--fg);
+        font-size: 13px;
+      }
+      .card .badge {
+        fill: #0f1722;
+        stroke: #1c2736;
+        rx: 10;
+        ry: 10;
+      }
+      .card .badgeText {
+        fill: var(--muted);
+        font-size: 11px;
+      }
+
+      .card.focus rect {
+        stroke: rgba(130, 180, 255, 0.85);
+        stroke-width: 1.6;
+      }
+      .card.dim {
+        opacity: 0.25;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="wrap">
+      <header>
+        <div class="title">Rolodex Linkograph</div>
+        <div class="hint">
+          Click a card to focus. Hover to highlight links. Drag background to
+          rotate.
+        </div>
+        <div class="spacer"></div>
+
+        <label class="hint">Rotation</label>
+        <input id="rot" type="range" min="-180" max="180" value="0" step="1" />
+
+        <button id="toggleIncoming">Incoming</button>
+        <button id="toggleOutgoing">Outgoing</button>
+        <button id="reset">Reset</button>
+      </header>
+
+      <div id="viz"></div>
+    </div>
+
+    <script>
+      // -----------------------------
+      // Sample data (replace later)
+      // -----------------------------
+      const nodes = [
+        {
+          id: "I1",
+          who: "A",
+          t: "00:18",
+          text: "Let’s do a 2-day coastal itinerary (beach + seafood).",
+        },
+        {
+          id: "I2",
+          who: "B",
+          t: "00:34",
+          text: "Alternative: mountain cabin + hiking; cheaper and quieter.",
+        },
+        {
+          id: "I3",
+          who: "C",
+          t: "01:05",
+          text: "Constraint: drive time max 4 hours; avoid toll-heavy routes.",
+        },
+        {
+          id: "I4",
+          who: "A",
+          t: "01:22",
+          text: "We can cluster: coastal vs mountain; then pick one.",
+        },
+        {
+          id: "I5",
+          who: "B",
+          t: "02:10",
+          text: "If coastal: add lighthouse stop + sunset viewpoint.",
+        },
+        {
+          id: "I6",
+          who: "C",
+          t: "03:02",
+          text: "I’ll summarize: 2 options + constraints; vote next.",
+        },
+        {
+          id: "I7",
+          who: "A",
+          t: "03:44",
+          text: "Premature convergence check: list 2 more wild options?",
+        },
+        {
+          id: "I8",
+          who: "B",
+          t: "04:12",
+          text: "Wild option: city food crawl + museum day.",
+        },
+        {
+          id: "I9",
+          who: "C",
+          t: "04:40",
+          text: "Wild option: lake camping + stargazing.",
+        },
+      ];
+
+      // links: source -> target (idea references / builds on)
+      const links = [
+        { source: "I4", target: "I1", type: "cluster" },
+        { source: "I4", target: "I2", type: "cluster" },
+        { source: "I5", target: "I1", type: "build" },
+        { source: "I6", target: "I3", type: "summarize" },
+        { source: "I6", target: "I4", type: "summarize" },
+        { source: "I7", target: "I6", type: "challenge" },
+        { source: "I8", target: "I7", type: "respond" },
+        { source: "I9", target: "I7", type: "respond" },
+        { source: "I2", target: "I3", type: "constraint" },
+      ];
+
+      // -----------------------------
+      // Setup
+      // -----------------------------
+      const container = document.getElementById("viz");
+      const svg = d3.select(container).append("svg");
+      const g = svg.append("g");
+
+      const gLinks = g.append("g");
+      const gCards = g.append("g");
+
+      let width = 800,
+        height = 600;
+      let center = { x: width / 2, y: height / 2 };
+      let radius = 210;
+
+      let rotationDeg = 0;
+      let focusedId = null;
+
+      let showIncoming = true;
+      let showOutgoing = true;
+
+      const rotInput = document.getElementById("rot");
+      const btnIncoming = document.getElementById("toggleIncoming");
+      const btnOutgoing = document.getElementById("toggleOutgoing");
+      const btnReset = document.getElementById("reset");
+
+      function resize() {
+        const r = container.getBoundingClientRect();
+        width = Math.max(320, r.width);
+        height = Math.max(320, r.height);
+        svg.attr("viewBox", `0 0 ${width} ${height}`);
+        center = { x: width / 2, y: height / 2 };
+        radius = Math.min(width, height) * 0.34;
+        render();
+      }
+      window.addEventListener("resize", resize);
+
+      // Drag background to rotate
+      const drag = d3
+        .drag()
+        .on("start", (event) => {
+          g.attr("data-drag-start-x", event.x);
+          g.attr("data-drag-start-rot", rotationDeg);
+        })
+        .on("drag", (event) => {
+          const startX = +g.attr("data-drag-start-x");
+          const startRot = +g.attr("data-drag-start-rot");
+          const dx = event.x - startX;
+          rotationDeg = startRot + dx * 0.25; // sensitivity
+          rotInput.value = Math.max(-180, Math.min(180, rotationDeg));
+          render();
+        });
+      svg.call(drag);
+
+      rotInput.addEventListener("input", (e) => {
+        rotationDeg = +e.target.value;
+        render();
+      });
+
+      function setToggleButtonState() {
+        btnIncoming.style.opacity = showIncoming ? 1 : 0.55;
+        btnOutgoing.style.opacity = showOutgoing ? 1 : 0.55;
+        btnIncoming.textContent = showIncoming ? "Incoming ✓" : "Incoming";
+        btnOutgoing.textContent = showOutgoing ? "Outgoing ✓" : "Outgoing";
+      }
+      btnIncoming.addEventListener("click", () => {
+        showIncoming = !showIncoming;
+        setToggleButtonState();
+        render();
+      });
+      btnOutgoing.addEventListener("click", () => {
+        showOutgoing = !showOutgoing;
+        setToggleButtonState();
+        render();
+      });
+      btnReset.addEventListener("click", () => {
+        focusedId = null;
+        rotationDeg = 0;
+        rotInput.value = 0;
+        showIncoming = true;
+        showOutgoing = true;
+        setToggleButtonState();
+        render();
+      });
+
+      setToggleButtonState();
+
+      // -----------------------------
+      // Geometry helpers
+      // -----------------------------
+      function angleForIndex(i, n) {
+        const base = (i / n) * Math.PI * 2;
+        return base + (rotationDeg * Math.PI) / 180;
+      }
+
+      function posForIndex(i, n) {
+        const a = angleForIndex(i, n);
+        return {
+          x: center.x + radius * Math.cos(a),
+          y: center.y + radius * Math.sin(a),
+          a,
+        };
+      }
+
+      // Simple perspective: bring cards near "front" (top) forward
+      function depthFromAngle(a) {
+        // front is at angle -90deg (top). cos shift:
+        // map to [0..1] where 1 is front, 0 is back
+        const frontA = -Math.PI / 2;
+        const d = (Math.cos(a - frontA) + 1) / 2;
+        return d;
+      }
+
+      function cardTransform(p, depth) {
+        // scale and slight y-shift for depth illusion
+        const s = 0.78 + depth * 0.42; // 0.78..1.2
+        const yLift = (1 - depth) * 18; // back cards drop a bit
+        return `translate(${p.x},${p.y + yLift}) scale(${s})`;
+      }
+
+      // Curved path through the center
+      function linkPath(p1, p2) {
+        const cx = center.x,
+          cy = center.y;
+        // curve strength based on distance
+        const dx = p2.x - p1.x,
+          dy = p2.y - p1.y;
+        const dist = Math.hypot(dx, dy);
+        const bend = Math.max(40, Math.min(180, dist * 0.35));
+        // control points pulled toward center
+        const c1x = (p1.x + cx) / 2,
+          c1y = (p1.y + cy) / 2;
+        const c2x = (p2.x + cx) / 2,
+          c2y = (p2.y + cy) / 2;
+
+        // offset control points perpendicular for nicer arcs
+        const nx = -dy / (dist || 1),
+          ny = dx / (dist || 1);
+        const k = bend;
+        const cc1x = c1x + nx * k,
+          cc1y = c1y + ny * k;
+        const cc2x = c2x + nx * k,
+          cc2y = c2y + ny * k;
+
+        return `M ${p1.x} ${p1.y} C ${cc1x} ${cc1y}, ${cc2x} ${cc2y}, ${p2.x} ${p2.y}`;
+      }
+
+      // -----------------------------
+      // Render
+      // -----------------------------
+      function render() {
+        // Compute positions + depths
+        const n = nodes.length;
+        const positioned = nodes.map((d, i) => {
+          const p = posForIndex(i, n);
+          const depth = depthFromAngle(p.a);
+          return { ...d, i, ...p, depth };
+        });
+
+        // Sort by depth so back cards draw first
+        positioned.sort((a, b) => a.depth - b.depth);
+
+        const posById = new Map(positioned.map((d) => [d.id, d]));
+
+        // Focus logic: bring focused card visually forward by temporarily boosting depth
+        function effectiveDepth(d) {
+          if (focusedId && d.id === focusedId) return 1.4;
+          return d.depth;
+        }
+
+        // --- Links (draw behind cards)
+        const enrichedLinks = links
+          .map((l) => {
+            const s = posById.get(l.source);
+            const t = posById.get(l.target);
+            return { ...l, s, t };
+          })
+          .filter((l) => l.s && l.t);
+
+        // Filter links when focused
+        let visibleLinks = enrichedLinks;
+        if (focusedId) {
+          visibleLinks = enrichedLinks.filter((l) => {
+            const isIncoming = l.target === focusedId;
+            const isOutgoing = l.source === focusedId;
+            return (showIncoming && isIncoming) || (showOutgoing && isOutgoing);
+          });
+        }
+
+        const linkSel = gLinks
+          .selectAll("path.link")
+          .data(visibleLinks, (d) => `${d.source}->${d.target}:${d.type}`);
+
+        linkSel
+          .enter()
+          .append("path")
+          .attr("class", "link")
+          .merge(linkSel)
+          .attr("d", (d) =>
+            linkPath({ x: d.s.x, y: d.s.y }, { x: d.t.x, y: d.t.y })
+          );
+
+        linkSel.exit().remove();
+
+        // --- Cards
+        const cardSel = gCards
+          .selectAll("g.card")
+          .data(positioned, (d) => d.id);
+
+        const cardEnter = cardSel
+          .enter()
+          .append("g")
+          .attr("class", "card")
+          .on("click", (event, d) => {
+            focusedId = focusedId === d.id ? null : d.id;
+
+            // snap rotation so focused card moves near "front"
+            if (focusedId) {
+              const currentAngle = d.a;
+              const frontA = -Math.PI / 2;
+              const delta = frontA - currentAngle;
+              rotationDeg += (delta * 180) / Math.PI;
+              rotationDeg = Math.max(-180, Math.min(180, rotationDeg));
+              rotInput.value = rotationDeg;
+            }
+            render();
+          })
+          .on("mouseenter", (event, d) => {
+            // highlight incident links
+            gLinks
+              .selectAll("path.link")
+              .classed("dim", true)
+              .classed("hi", false);
+            gLinks
+              .selectAll("path.link")
+              .filter((l) => l.source === d.id || l.target === d.id)
+              .classed("dim", false)
+              .classed("hi", true);
+
+            // dim non-hover cards (if not focused)
+            if (!focusedId) {
+              gCards.selectAll("g.card").classed("dim", (c) => c.id !== d.id);
+            }
+          })
+          .on("mouseleave", () => {
+            gLinks
+              .selectAll("path.link")
+              .classed("dim", false)
+              .classed("hi", false);
+            gCards.selectAll("g.card").classed("dim", false);
+          });
+
+        // Card visuals
+        const CARD_W = 240,
+          CARD_H = 120;
+
+        cardEnter
+          .append("rect")
+          .attr("x", -CARD_W / 2)
+          .attr("y", -CARD_H / 2)
+          .attr("width", CARD_W)
+          .attr("height", CARD_H);
+
+        // header meta
+        cardEnter
+          .append("text")
+          .attr("class", "meta")
+          .attr("x", -CARD_W / 2 + 14)
+          .attr("y", -CARD_H / 2 + 22);
+
+        // main text (wrap)
+        cardEnter
+          .append("text")
+          .attr("class", "text")
+          .attr("x", -CARD_W / 2 + 14)
+          .attr("y", -CARD_H / 2 + 46);
+
+        // small badge id
+        const badge = cardEnter
+          .append("g")
+          .attr(
+            "transform",
+            `translate(${CARD_W / 2 - 66},${-CARD_H / 2 + 10})`
+          );
+        badge
+          .append("rect")
+          .attr("class", "badge")
+          .attr("width", 56)
+          .attr("height", 22);
+        badge
+          .append("text")
+          .attr("class", "badgeText")
+          .attr("x", 28)
+          .attr("y", 15)
+          .attr("text-anchor", "middle");
+
+        // update + position
+        const cardAll = cardEnter.merge(cardSel);
+
+        cardAll
+          .classed("focus", (d) => focusedId && d.id === focusedId)
+          .attr("transform", (d) => cardTransform(d, effectiveDepth(d)));
+
+        cardAll.select("text.meta").text((d) => `${d.who} · ${d.t}`);
+
+        // Wrap text into tspans
+        cardAll.select("text.text").each(function (d) {
+          const textSel = d3.select(this);
+          textSel.selectAll("*").remove();
+
+          const words = d.text.split(/\s+/);
+          const lineHeight = 16;
+          const maxWidth = CARD_W - 28;
+
+          let line = [];
+          let lineNumber = 0;
+
+          let tspan = textSel
+            .append("tspan")
+            .attr("x", -CARD_W / 2 + 14)
+            .attr("dy", 0);
+
+          for (const w of words) {
+            line.push(w);
+            tspan.text(line.join(" "));
+
+            // measure
+            const node = tspan.node();
+            if (node && node.getComputedTextLength() > maxWidth) {
+              line.pop();
+              tspan.text(line.join(" "));
+              line = [w];
+              lineNumber += 1;
+              tspan = textSel
+                .append("tspan")
+                .attr("x", -CARD_W / 2 + 14)
+                .attr("dy", lineHeight)
+                .text(w);
+
+              // stop after 3 lines
+              if (lineNumber >= 2) break;
+            }
+          }
+
+          // if truncated, add ellipsis
+          if (lineNumber >= 2 && words.length > 0) {
+            const last = textSel.select("tspan:last-child");
+            const current = last.text();
+            last.text(current.replace(/\.*$/, "") + "…");
+          }
+        });
+
+        cardAll.select(".badgeText").text((d) => d.id);
+
+        // If focused, dim non-adjacent cards
+        if (focusedId) {
+          const neighbors = new Set([focusedId]);
+          links.forEach((l) => {
+            if (l.source === focusedId) neighbors.add(l.target);
+            if (l.target === focusedId) neighbors.add(l.source);
+          });
+          gCards
+            .selectAll("g.card")
+            .classed("dim", (d) => !neighbors.has(d.id));
+        } else {
+          gCards.selectAll("g.card").classed("dim", false);
+        }
+      }
+
+      resize();
+    </script>
+  </body>
+</html>

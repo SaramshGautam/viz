@@ -1,0 +1,149 @@
+:root {
+  --bg: #0b0f14;
+  --fg: #e8eef6;
+  --muted: #96a2b4;
+  --card: #121a24;
+  --stroke: #263244;
+  --axis: rgba(180, 200, 230, 0.18);
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+}
+
+#wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #121a24;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+button,
+input[type="range"] {
+  background: #0f1722;
+  color: var(--fg);
+  border: 1px solid #1c2736;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: #2b3b52;
+}
+
+#viz {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+
+svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.axis-line {
+  stroke: var(--axis);
+  stroke-width: 2;
+}
+
+.axis-core {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.link {
+  fill: none;
+  stroke: rgba(160, 190, 255, 0.22);
+  stroke-width: 2;
+  transition: opacity 160ms ease, stroke-width 160ms ease;
+}
+
+.link.dim {
+  opacity: 0.06;
+}
+
+.link.hi {
+  opacity: 0.95;
+  stroke: rgba(160, 190, 255, 0.9);
+  stroke-width: 3;
+}
+
+.card {
+  cursor: pointer;
+  transition: opacity 140ms ease;
+}
+
+.card rect {
+  fill: var(--card);
+  stroke: var(--stroke);
+  stroke-width: 1.2;
+  rx: 16;
+  ry: 16;
+}
+
+.card .meta {
+  fill: var(--muted);
+  font-size: 12px;
+}
+
+.card .text {
+  fill: var(--fg);
+  font-size: 13px;
+}
+
+.card .badge {
+  fill: #0f1722;
+  stroke: #1c2736;
+  rx: 10;
+  ry: 10;
+}
+
+.card .badgeText {
+  fill: var(--muted);
+  font-size: 11px;
+}
+
+.card.focus rect {
+  stroke: rgba(130, 180, 255, 0.9);
+  stroke-width: 1.8;
+}
+
+.card.dim {
+  opacity: 0.18;
+}

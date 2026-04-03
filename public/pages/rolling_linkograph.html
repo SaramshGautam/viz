@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Linkograph</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="../css/style.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <header>
+      <div class="title">Rolling Linkograph</div>
+      <div class="hint">
+        Click a card to focus. Hover to highlight links. Drag background to
+        rotate.
+      </div>
+      <div class="spacer"></div>
+
+      <label class="hint" for="rot">Rotation</label>
+      <input id="rot" type="range" min="-180" max="180" value="0" step="1" />
+
+      <div style="margin-bottom: 12px">
+        <button id="toggleIncoming">Incoming</button>
+        <button id="toggleOutgoing">Outgoing</button>
+        <button id="reset">Reset</button>
+      </div>
+      <label for="actorSelect">Actor</label>
+      <select id="actorSelect">
+        <option value="0">Actor 0</option>
+        <option value="1" selected>Actor 1</option>
+        <option value="2">Actor 2</option>
+      </select>
+    </header>
+    <div id="viz" style="width: 100%; min-height: 700px"></div>
+
+    <script
+      crossorigin
+      src="https://unpkg.com/react@18/umd/react.development.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"
+    ></script>
+
+    <!-- <script type="module" src="../js/rolling_linkograph.js"></script> -->
+    <script type="module" src="../js/InvertedLinkograph/main.js"></script>
+  </body>
+</html>
